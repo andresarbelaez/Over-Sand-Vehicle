@@ -1,0 +1,294 @@
+void setup() 
+{
+   sSerial.begin(9600);
+   Serial.begin(9600);
+#include <SoftwareSerial.h>
+ #include "enes100.h" //RF module set-up
+
+ SoftwareSerial sSerial(8,9);
+ 
+ enes100::RfClient<SoftwareSerial> rf(&sSerial);
+
+ enes100::Marker marker;
+
+   int slower = 5;
+   int motorpinR = 3;
+   int motorpinL = 11;
+
+   //these are the motor speeds, as controlled by two VEX  motor controllers. This OSV operates on differential steering. “RF” below refers to right forward, “RL” refers to right left, “RR” refers to right right, and “RS” refers to right stall. the same convention is used for the left motor controller (L_).
+   int motorspeedRF = 145; 
+   int motorspeedLF = 235;
+   int motorspeedRL = 145;
+   int motorspeedLL = 145;
+   int motorspeedRR = 235; 
+   int motorspeedLR = 235;
+   int motorspeedRS = 0;
+   int motorspeedLS = 0;
+
+   Servo armMotor;
+   int value;
+   const int trigPin = 2;
+   const int echoPin = 4;
+   const int readSensor = A2;
+//these are the pins needed for the ultrasonic sensor, a part of the navigation subsystem of the OSV.
+ 
+void setup() 
+{
+   sSerial.begin(9600);
+   Serial.begin(9600);
+   
+   pinMode(motorpinR, OUTPUT);
+   pinMode(motorpinL, OUTPUT);
+
+   pinMode(trigPin, OUTPUT); //the "trig" pin is used as the output of the ultrasonic distance sensor
+   pinMode(echoPin, INPUT); //The "echo" pin receives the ultrasonic wavelengths and converts them back to analog (?????)
+
+   delay(10);
+}
+
+void loop() 
+
+{
+
+/*this conditional statement sets up the hierarchal progression needed for the OSV to begin its motion in the arena. It states if the RF module receives notification that the OSV's RF marker is within the bounds of the arena, a "Blue Team connected"  message is sent to the console, along with its starting coordinates (x,y,theta)*/
+
+if(rf.receiveMarker(&marker, 100)) {
+     
+     rf.sendMessage("Blue Team Connected");
+     rf.sendMessage(" X "); 
+     rf.sendMessage(marker.x);
+     rf.sendMessage(" Y ");
+     rf.sendMessage(marker.y);
+     rf.sendMessage(" Theta ");
+     rf.sendMessage(marker.theta);
+     delay(10); //this reading is updated every 10 milliseconds for a real-time response.
+}
+
+//The ultrasonic sensor is also initialized
+if (marker.x < 4.0 && marker.y <= 2.00){
+      double duration;
+      rf.sendMessage("Ultrasonic");
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);
+      duration = pulseIn(echoPin, HIGH);
+      rf.sendMessage(duration);
+      delay(10);
+ 
+//The following “if” statements are the core of the navigation code for the OSV. In order to contextualize each command (i.e. “Turn Right”), refer to the OSV Navigation Map located in the Over-Sand-Vehicle repository.
+
+//Marker.theta readings are in the range [3.14, -3.14] because the orientation of the OSV is determined by the convention of the unit circle. A forward-facing OSV orientation is thus 0.00 and a backward-facing OSV orientation is 3.14 or -3.14
+
+ if(marker.x >= 0.05 && marker.x < 0.50 && marker.y < 0.80){
+     if(marker.theta > 1.7 && marker.theta < 3.14 || marker.theta > -3.14 && 		marker.theta < 1.2) // (marker.theta > 0.5 && marker.theta < 3.14 || 		marker.theta > -3.14 && marker.theta < -0.5){
+       analogWrite(motorpinR, motorspeedRR);
+       analogWrite(motorpinL, motorspeedLR);
+       rf.sendMessage("Turn Right");
+       delay(10);
+       } else if(marker.theta > 1.2 && marker.theta <= 1.7) || (marker.theta < 0.5 && 		marker.theta >= -0.5){
+       analogWrite(motorpinR, motorspeedRS);
+       analogWrite(motorpinL, motorspeedLS);
+       rf.sendMessage("Stop");
+       delay(500);
+       analogWrite(motorpinR, motorspeedRF);
+       analogWrite(motorpinL, motorspeedLF); 
+       rf.sendMessage("Go Straight");
+       }
+  } else if(marker.x >= 0.05 && marker.x < 0.50 && marker.y >= 1.2){
+     if(marker.theta > -1.2 && marker.theta < 3.14 || marker.theta > -3.14 && 		marker.theta < -1.7) || (marker.theta > 0.5 && marker.theta < 3.14 || 		marker.theta > -3.14 && marker.theta < -0.5){
+       analogWrite(motorpinR, motorspeedRR);
+       analogWrite(motorpinL, motorspeedLR);
+       rf.sendMessage("Turn Right");
+       delay(10);
+       } else if(marker.theta < -1.2 && marker.theta >= -1.7) || (marker.theta < 0.5 		&& marker.theta >= -0.5){
+       analogWrite(motorpinR, motorspeedRS);
+       analogWrite(motorpinL, motorspeedLS);
+       rf.sendMessage("Stop");
+       delay(500);
+       analogWrite(motorpinR, motorspeedRF);
+       analogWrite(motorpinL, motorspeedLF); 
+       rf.sendMessage("Go Straight");
+       }
+  } else if(marker.x >= 0.05 && marker.x < 0.50 
+	&& marker.y >= 0.8 && marker.y < 1.2){
+   	if(marker.theta > 0.7 && marker.theta < 3.14 || marker.theta > -3.14 && 			marker.theta < -0.7) // (marker.theta > 0.5 && marker.theta < 3.14 || 		marker.theta > -3.14 && marker.theta < -0.5){
+       analogWrite(motorpinR, motorspeedRR);
+       analogWrite(motorpinL, motorspeedLR);
+       rf.sendMessage("Turn Right");
+       delay(10);
+       } else if(marker.theta < -0.7 && marker.theta >= 0.7) ||(marker.theta < 0.5 && 		marker.theta >= -0.5) {
+       analogWrite(motorpinR, motorspeedRS);
+       analogWrite(motorpinL, motorspeedLS);
+       rf.sendMessage("Stop");
+       delay(500);
+       analogWrite(motorpinR, motorspeedRF);
+       analogWrite(motorpinL, motorspeedLF); 
+       rf.sendMessage("Go Straight");
+       }
+  } else if(marker.x < 3.30 && marker.x >= 0.50 && marker.y > 0.8 && marker.y<=1.2 && 	marker.theta < 0.5 && marker.theta >= -0.5) {
+         analogWrite(motorpinR, motorspeedRF);
+         analogWrite(motorpinL, motorspeedLF); 
+         rf.sendMessage("Go Straight 1");          
+  } else if(marker.x >= 3.30 && marker.y > 0.8 && marker.y<=1.2){
+       if(marker.theta > -1.2 && marker.theta < 3.14 || marker.theta > -3.14 && 			marker.theta < -1.7) // (marker.theta > 0.5 && marker.theta < 3.14 || 		marker.theta > -3.14 && marker.theta < -0.5){
+         analogWrite(motorpinR, motorspeedRR);
+         analogWrite(motorpinL, motorspeedLR);
+         rf.sendMessage("Turn Right");
+         delay(10);
+       } else if(marker.theta < -1.2 && marker.theta > -1.7) // (marker.theta > 0.5 		&&marker.theta < 3.14 || marker.theta > -3.14 && marker.theta < -0.5){
+         analogWrite(motorpinR, motorspeedRS);
+         analogWrite(motorpinL, motorspeedLS);
+         rf.sendMessage("Stop");
+         delay(500);
+         analogWrite(motorpinR, motorspeedRF);
+         analogWrite(motorpinL, motorspeedLF); 
+         rf.sendMessage("Go Straight");
+       } else if(marker.x > 3.0 && marker.y < 0.5){
+           analogWrite(motorpinR, motorspeedRS);
+           analogWrite(motorpinL, motorspeedLS);
+           rf.sendMessage("Stop");
+           delay (20000);
+       }
+  }       
+}
+rf.receiveMarker(&marker, 109);
+ analogWrite(motorpinR, motorspeedRF);
+   analogWrite(motorpinL, motorspeedLF);
+
+ double duration, inches, cm;
+
+ //pinMode(trigPin, OUTPUT);
+ digitalWrite(trigPin, LOW);
+ delayMicroseconds(2);
+ digitalWrite(trigPin, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(trigPin, LOW);
+
+ // Read the signal from the sensor: a HIGH pulse whose
+ // duration is the time (in microseconds) from the sending
+ // of the ping to the reception of its echo off of an object.
+ //pinMode(echoPin, INPUT);
+ duration = pulseIn(echoPin, HIGH);
+ rf.sendMessage(duration);
+
+ // convert the time into a distance
+ inches = microsecondsToInches(duration);
+ cm = microsecondsToCentimeters(duration);
+ 
+ rf.sendMessage(inches);
+ rf.sendMessage("in, ");
+ rf.sendMessage(cm);
+ rf.sendMessage("cm");
+ rf.sendMessage();
+ 
+ delay(1000);
+
+
+//if the ultrasonic distance sensor reads a value of 7 cm or less, the "arm mechanism" is activated....see below for more details.
+
+ if(cm<=7){
+   analogWrite(motorpinR, motorspeedRS); //The motors are told to go to stall speed (0), effectively halting the OSV from navigating any closer to the pool.
+   analogWrite(motorpinL, motorspeedLS);
+   delay(5000);
+   armMotor.write(-180); //The arm's continuous servo motor is told to lower the arm components into the pool by unwinding the spool.
+   delay(5000);
+   armMotor.write(94);
+   delay(10000);
+   value = analogRead(readSensor); //Read data from analog pin and store it to value variable
+ 
+/*the following are a series of "if" statements, covering ranges of possible analog readings the depth sensor hardware may detect. Regardless of the value reading, the arm servo motor is instructed to raise the arm components after the RF module has transmitted the "Water level:___" message.
+
+   if (value<=264){ 
+     rf.sendMessage("Water level: 18mm"); 
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>264 && value<=330){ 
+        rf.sendMessage("Water level: 20mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>330 && value<=337){  
+        rf.sendMessage("Water level: 22mm"); 
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+    } else if (value>337 && value<=355){ 
+        rf.sendMessage("Water level: 24mm"); 
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+    } else if (value>355 && value<=368){ 
+        rf.sendMessage("Water level: 26mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000); 
+   } else if (value>368 && value<=374){  
+        rf.sendMessage("Water level: 28mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>374 && value<=465){  
+        rf.sendMessage("Water level: 30mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>465 && value<=517.8){ 
+        rf.sendMessage("Water level: 32mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>517.8 && value<=579.6){  
+        rf.sendMessage("Water level: 34mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>579.6 && value<=613.4){ 
+       //Serial.println("Water level: 36mm"); 
+        rf.sendMessage("Water level: 36mm"); 
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>613.4 && value<=617.2){  
+        rf.sendMessage("Water level: 38mm"); 
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>617.2 && value<=642.8){ 
+        rf.sendMessage("Water level: 40mm");
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+   } else if (value>642.8 && value<=649){  
+        rf.sendMessage("Water level: 42mm"); 
+   } else {
+     	rf.sendMessage(inches);
+   	rf.sendMessage("in, ");
+  	rf.sendMessage(cm);
+   	rf.sendMessage("cm");
+  	rf.sendMessage();
+   }
+
+//After the water depth has been measured, the armMotor is instructed to wind back the spool, elevating the arm back to its original position.
+   armMotor.write(180);
+   delay(5000);
+   armMotor.write(94);
+   delay(5000);
+ } 
+
+   
+}
